@@ -21,6 +21,8 @@
 #
 
 import string,os,sys,math
+from functools import reduce
+from itertools import starmap
 
 collen = 1
 
@@ -53,10 +55,10 @@ def slurp_po(fname):
             if s.find('fuzzy') >= 0:
                 fuzzy = 1
                 
-        s = string.strip(string.split(s,'#')[0])
+        s = s.split('#')[0].strip()
         if not s: continue # empty or comment line.
         
-        sl = string.split(s)
+        sl = s.split()
         if sl[0] == "msgid":
             #print "id",id,"st",st
             if st:
@@ -83,10 +85,10 @@ def slurp_po(fname):
     return (language_name, idents, translations,fuzzies)
 
 if len(sys.argv)<3:
-    print "Usage: %s <package.pot> <lang.po> ..." % sys.argv[0]
-    print
-    print " <package.pot>: file name of the identifier reference to check."
-    print " <lang.po>: file name of the translation to check"
+    print("Usage: %s <package.pot> <lang.po> ..." % sys.argv[0])
+    print()
+    print(" <package.pot>: file name of the identifier reference to check.")
+    print(" <lang.po>: file name of the translation to check")
     sys.exit(1)
 
 def maxlen(a,b):
@@ -97,30 +99,28 @@ def maxlen(a,b):
 (t,idents,n,f) = slurp_po(sys.argv[1])
 del t,n,f
 
-translations = map(slurp_po,sys.argv[2:])
-trans = map(lambda (l,i,t,f),ti=idents:
-            "%s:%3d%%(%d/%d/%d)%s"%(l,
-                                 100*float(t)/idents,
-                                 t,f,idents,
-                                 "*" * (idents != i)),
-            translations)
+translations = list(map(slurp_po,sys.argv[2:]))
+trans = list(
+    starmap(
+        lambda l,i,t,f: "%s:%3d%%(%d/%d/%d)%s"%(l, 100*float(t)/idents, t,f,idents, "*" * (idents != i)),
+        translations
+    )
+)
 maxlanglen = len(reduce(maxlen,trans,""))
-trans = map(lambda s,mll=maxlanglen: string.ljust(s,mll),trans)
+trans = list(map(lambda s,mll=maxlanglen: s.ljust(mll),trans))
 
 collen = maxlanglen + len("  ")
 
 numcols = int(79 / collen)
-ltnc = (len(trans) / numcols) + (len(trans) % numcols)
+ltnc = int((len(trans) / numcols) + (len(trans) % numcols))
 
 cols = []
 while trans:
     c,trans = trans[:ltnc],trans[ltnc:]
     cols.append(c)
 
-lines = apply(map,tuple([None]+cols))
+lines = list(zip(*cols))
 
-result = string.join(map(lambda l:string.join(map(NoneStr,list(l)),"  "),
-                         lines),
-                     "\n")
-print result
+result = '\n'.join(["  ".join(list(map(NoneStr, list(l)))) for l in lines])
 
+print(result)
